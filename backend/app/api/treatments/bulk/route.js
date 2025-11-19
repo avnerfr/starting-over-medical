@@ -23,9 +23,7 @@ export async function POST(request) {
     const animalType = searchParams.get('animalType');
     const deleteFlag = searchParams.get('delete');
 
-    console.log('@@@@@@@@ bulk add treatments for animal type:', animalType);
-    console.log('@@@@@@@@ bulk add treatments for animal name:', animalName);
-    console.log('@@@@@@@@ bulk add treatments deleteFlag:', deleteFlag);
+    console.log(`@@@@@@@@ bulk add treatments for animal type: ${animalType}, animal name: ${animalName}. Delete flag: ${deleteFlag}`);
    
     if (!animalName) {
       return new Response(JSON.stringify({ error: 'animalName is required' }), {
@@ -33,7 +31,7 @@ export async function POST(request) {
         headers: CORS_HEADERS
       });
     }
-    console.log('search for the animal sheet for:', animalName);
+    console.log('search for the animal sheet on:', ANIMAL_TREATMENT_SHEETS[animalType].folderId);
     const animalSheetId = await findSheetIdByName(ANIMAL_TREATMENT_SHEETS[animalType].folderId, animalName);
     console.log('found sheet id:', animalSheetId);
 

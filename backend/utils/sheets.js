@@ -8,18 +8,19 @@ import { env } from 'process';
 
  // Dictionary mapping animal types to their treatment sheets and animals
 export const ANIMAL_TREATMENT_SHEETS = {
-  "horse": {
+    "donkey": {
+    displayName: "חמור",
+    emoji: "🫏",
+    sheetId: process.env.DONKEYS_SHEET_ID,
+    folderId: process.env.DONKEYS_DRIVE_FOLDER_ID,
+  }
+/*,  "horse": {
     displayName: "סוס",
     emoji: "🐴",
     sheetId: process.env.HORSES_SHEET_ID,
     folderId: process.env.HORSES_DRIVE_FOLDER_ID,
   },
-  "donkey": {
-    displayName: "חמור",
-    emoji: "🫏",
-    sheetId: process.env.DONKEYS_SHEET_ID,
-    folderId: process.env.DONKEYS_DRIVE_FOLDER_ID,
-  }/*,
+
   "cow": {
     displayName: "פרה",
     emoji: "🐄",
@@ -174,12 +175,6 @@ async function getDoc(spreadsheetId) {
     try {
       console.log('Creating new GoogleSpreadsheet instance...');
       console.log('GoogleSpreadsheet type:', typeof GoogleSpreadsheet);
-      try {
-        const pkg = require('google-spreadsheet/package.json');
-        console.log('google-spreadsheet version:', pkg.version);
-      } catch (e) {
-        console.log('Could not read google-spreadsheet package.json:', e.message);
-      }
 
       // --- CHANGED: build JWT and pass it into the constructor ---
       const auth = getSheetsAuth();
@@ -1023,6 +1018,10 @@ export async function getAnimalsForCaregiverWithTreatementsToday(caregiverName) 
       for (const animal of assignedAnimals) {
             const spreadsheetId = await findSpreadsheetInFolder(animalType, animal.id);
             console.log(`Animal ID: ${animal.id}, Spreadsheet ID: ${spreadsheetId}`);
+            if(!spreadsheetId) {
+              console.log(`No treatment sheet found for animal ID: ${animal.id}`);
+              continue;
+            }
             if(await hasTreatmentToday(spreadsheetId, todayStr)) {
                 animal.animalType = animalType; // add animal type to the object
                 animalsWithTodayTreatments.push(animal);

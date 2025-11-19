@@ -242,7 +242,7 @@ export async function GET(request) {
 
       return new Response(JSON.stringify(animals), { status: 200, headers: CORS_HEADERS });
     }
-    console.log('@@@@@@@@Fetching treatments for animalType:', animalType);
+    console.log('@@@@@@@@Fetching treatments for animalType:', animalType, 'animalId:');
 
 
     // Get treatments for a specific animal
