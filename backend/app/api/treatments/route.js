@@ -105,7 +105,7 @@ export async function GET_PROFILE(request) {
   }
 }
 import { log } from 'console';
-import { ANIMAL_TREATMENT_SHEETS, getAnimalTreatments, addTreatmentAtTop, getAnimalsFromSheet, getAnimals, getProtocolsFromSheet, readRecentSheetsAndRows } from '../../../utils/sheets';
+import { ANIMAL_TREATMENT_SHEETS, getAnimalTreatments, addTreatmentAtTop, getAnimalsFromSheet, getAnimals, getProtocolsFromSheet, readRecentSheetsAndRows, ensureConfigLoaded, getAllAnimalTypes } from '../../../utils/sheets';
 
 
 const protocolsSheetId = "1DJhnTRnEImO-gD7a6gBHLvS374xkpv-_Z18tAS3AuPQ";
@@ -122,6 +122,9 @@ export async function OPTIONS() {
 
 export async function GET(request) {
   try {
+    // Ensure configuration is loaded before accessing sheets
+    await ensureConfigLoaded();
+    
     const { searchParams } = new URL(request.url);
     const animalId = searchParams.get('animalId');
     const animalType = searchParams.get('animalType');
@@ -171,11 +174,8 @@ export async function GET(request) {
 
     // Return list of animal types
     if (!animalId && !animalType) {
-      const types = Object.entries(ANIMAL_TREATMENT_SHEETS).map(([key, value]) => ({
-        id: key,
-        displayName: value.displayName,
-        emoji: value.emoji
-      }));
+      const types = getAllAnimalTypes();
+      console.log('Returning animal types:', types);
       return new Response(JSON.stringify(types), { 
         status: 200, 
         headers: CORS_HEADERS 

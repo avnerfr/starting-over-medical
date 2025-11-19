@@ -7,63 +7,81 @@ import { env } from 'process';
 
 
  // Dictionary mapping animal types to their treatment sheets and animals
-export const ANIMAL_TREATMENT_SHEETS = {
-    "donkey": {
-    displayName: "חמור",
-    emoji: "🫏",
-    sheetId: process.env.DONKEYS_SHEET_ID,
-    folderId: process.env.DONKEYS_DRIVE_FOLDER_ID,
+export const ANIMAL_TREATMENT_SHEETS = new Proxy({}, {
+  get: (target, prop) => {
+    // Dynamically build based on current environment variables
+    const sheets = {
+      "donkey": {
+        displayName: "חמור",
+        emoji: "🫏",
+        sheetId: process.env.DONKEYS_SHEET_ID,
+        folderId: process.env.DONKEYS_DRIVE_FOLDER_ID,
+      },
+      "horse": {
+        displayName: "סוס",
+        emoji: "🐴",
+        sheetId: process.env.HORSES_SHEET_ID,
+        folderId: process.env.HORSES_DRIVE_FOLDER_ID,
+      },
+      "cow": {
+        displayName: "פרה",
+        emoji: "🐄",
+        sheetId: process.env.COWS_SHEET_ID,
+        folderId: process.env.COWS_DRIVE_FOLDER_ID, 
+      },
+      "dog": {
+        displayName: "כלב",
+        emoji: "🐕",
+        sheetId: process.env.DOGS_SHEET_ID,
+        folderId: process.env.DOGS_DRIVE_FOLDER_ID,
+      },
+      "cat": {
+        displayName: "חתול",
+        emoji: "🐈",
+        sheetId: process.env.CATS_SHEET_ID,
+        folderId: process.env.CATS_DRIVE_FOLDER_ID, 
+      },
+      "goat": {
+        displayName: "עז",
+        emoji: "🐐",
+        sheetId: process.env.GOATS_SHEET_ID,
+        folderId: process.env.GOATS_DRIVE_FOLDER_ID,
+      },
+      "sheep": {
+        displayName: "כבשה",
+        emoji: "🐑",
+        sheetId: process.env.SHEEPS_SHEET_ID,
+        folderId: process.env.SHEEPS_DRIVE_FOLDER_ID,
+      },
+      "rabbit": {
+        displayName: "ארנב",
+        emoji: "🐰",
+        sheetId: process.env.RABBITS_SHEET_ID,
+        folderId: process.env.RABBITS_DRIVE_FOLDER_ID,
+      },
+      "chicken": {
+        displayName: "עופות",
+        emoji: "🐔",
+        sheetId: process.env.CHICKENS_SHEET_ID,
+        folderId: process.env.CHICKENS_DRIVE_FOLDER_ID,
+      }
+    };
+    return sheets[prop];
   }
-/*,  "horse": {
-    displayName: "סוס",
-    emoji: "🐴",
-    sheetId: process.env.HORSES_SHEET_ID,
-    folderId: process.env.HORSES_DRIVE_FOLDER_ID,
-  },
+});
 
-  "cow": {
-    displayName: "פרה",
-    emoji: "🐄",
-    sheetId: process.env.COWS_SHEET_ID,
-    folderId: process.env.COWS_DRIVE_FOLDER_ID, 
-  },
-  "dog": {
-    displayName: "כלב",
-    emoji: "🐕",
-    sheetId: process.env.DOGS_SHEET_ID,
-    folderId: process.env.DOGS_DRIVE_FOLDER_ID,
-  },
-  "cat": {
-    displayName: "חתול",
-    emoji: "🐈",
-    sheetId: process.env.CATS_SHEET_ID,
-    folderId: process.env.CATS_DRIVE_FOLDER_ID, 
-  },
-  "goat": {
-    displayName: "עז",
-    emoji: "🐐",
-    sheetId: process.env.GOATS_SHEET_ID,
-    folderId: process.env.GOATS_DRIVE_FOLDER_ID,
-  },
-  "sheep": {
-    displayName: "כבשה",
-    emoji: "🐑",
-    sheetId: process.env.SHEEPS_SHEET_ID,
-    folderId: process.env.SHEEPS_DRIVE_FOLDER_ID,
-  },
-  "rabbit": {
-    displayName: "ארנב",
-    emoji: "🐰",
-    sheetId: process.env.RABBITS_SHEET_ID,
-    folderId: process.env.RABBITS_DRIVE_FOLDER_ID,
-  },
-  "chicken": {
-    displayName: "עופות",
-    emoji: "🐔",
-    sheetId: process.env.CHICKENS_SHEET_ID,
-    folderId: process.env.CHICKENS_DRIVE_FOLDER_ID,
-  }*/
-};
+// Helper function to get all animal types
+export function getAllAnimalTypes() {
+  const animalTypes = ["donkey", "horse", "cow", "dog", "cat", "goat", "sheep", "rabbit", "chicken"];
+  return animalTypes.map(type => {
+    const info = ANIMAL_TREATMENT_SHEETS[type];
+    return {
+      id: type,
+      displayName: info.displayName,
+      emoji: info.emoji
+    };
+  });
+}
 
 // internal field name -> sheet header (Hebrew)
 const FIELD_TO_HEADER = {
@@ -89,25 +107,85 @@ const FIELD_TO_HEADER = {
 
 
 // Service account credentials (env vars)
-const CREDENTIALS = {
-  client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  private_key: process.env.GOOGLE_SHEETS_PRIVATE_KEY
-    ? process.env.GOOGLE_SHEETS_PRIVATE_KEY.replace(/\\n/g, '\n')
-    : ''
-};
+function getCredentials() {
+  return {
+    client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    private_key: process.env.GOOGLE_SHEETS_PRIVATE_KEY
+      ? process.env.GOOGLE_SHEETS_PRIVATE_KEY.replace(/\\n/g, '\n')
+      : ''
+  };
+}
+
+// Get current CREDENTIALS (lazily evaluate)
+Object.defineProperty(global, 'CREDENTIALS', {
+  get: () => getCredentials(),
+  configurable: true
+});
+
+// Initialize configuration from sheet on module load
+let configLoaded = false;
+let configPromise = null;
 
 // Log credentials (without revealing the full private key)
-console.log('Service Account Email:', CREDENTIALS.client_email);
-console.log('Private Key exists:', !!CREDENTIALS.private_key);
-console.log(
-  'Private Key starts with:',
-  CREDENTIALS.private_key ? CREDENTIALS.private_key.substring(0, 50) + '...' : 'No key found'
-);
+function logCredentials() {
+  const creds = getCredentials();
+  console.log('Service Account Email:', creds.client_email);
+  console.log('Private Key exists:', !!creds.private_key);
+  console.log(
+    'Private Key starts with:',
+    creds.private_key ? creds.private_key.substring(0, 50) + '...' : 'No key found'
+  );
+}
 
 // Cache for loaded documents and Drive client
 const docCache = new Map();
 let driveClient = null;
 let sheetsAuth = null;
+
+/*
+  read configuration sheet and set all configurations
+  */
+async function readConfigurationSheet() {
+  const configSheetId = process.env.CONFIGURATION_SHEET_ID;
+  if (!configSheetId) {
+    console.warn('Missing CONFIGURATION_SHEET_ID env var - skipping configuration sheet load');
+    return;
+  }
+  try {
+    const doc = await getDoc(configSheetId);
+    const sheet = doc.sheetsByIndex[0]; // Assuming first sheet
+    const rows = await sheet.getRows();
+    rows.forEach(row => {
+      const key = row['Key'] || row._rawData?.[0];
+      const value = row['Value'] || row._rawData?.[1];
+      if (key && value) {
+        process.env[key] = value;
+        console.log(`Loaded config: ${key}`);
+      }
+    });
+    console.log('Configuration sheet loaded and environment variables set.');
+    configLoaded = true;
+  } catch (error) {
+    console.error('Error reading configuration sheet:', error);
+    throw error;
+  }
+}
+
+// Initialize config on module load
+if (!configLoaded && !configPromise) {
+  configPromise = readConfigurationSheet().catch(err => {
+    console.error('Failed to load configuration sheet:', err);
+  });
+  // Log after config is loaded
+  configPromise.then(() => logCredentials()).catch(() => {
+    console.log('Could not log credentials after config load');
+  });
+}
+
+
+
+
+
 
 // --- NEW: JWT auth for Google Sheets (replaces useServiceAccountAuth) ---
 function getSheetsAuth() {
@@ -221,6 +299,9 @@ export async function findSheetIdByName(folderId, animalName){
     ----------------------------------------
 */
 export async function getAnimals(animalType) {
+    // Ensure config is loaded before accessing env vars
+    if (configPromise) await configPromise;
+    
     console.log('Starting getAnimals...');
     console.log('Animals sheet ID:', ANIMAL_TREATMENT_SHEETS[animalType].sheetId);
     console.log('Service account:', CREDENTIALS.client_email);
@@ -927,6 +1008,8 @@ retrieve caregiver name by email from sheet
 */    
 export async function getCaregiverNameFromSheet(email) {
   try {
+    if(!configLoaded) await configPromise;
+    
     const spreadsheetId = process.env.CAREGIVERS_SHEET_ID;
     console.log(`Starting getCaregiverNameFromSheet for sheetID: ${spreadsheetId}`);  
     if (!spreadsheetId) throw new Error('Could not find caregiver sheet' );  
@@ -1062,5 +1145,12 @@ export async function hasTreatmentToday(sheetId, todayStr) {
   } catch (error) {
     console.error('Error in hasTreatmentToday:', error);
     throw error;
+  }
+}
+
+// Export a function to ensure configuration is loaded before using sheets
+export async function ensureConfigLoaded() {
+  if (configPromise) {
+    await configPromise;
   }
 } 

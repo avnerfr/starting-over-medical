@@ -13,7 +13,9 @@ export async function OPTIONS() {
 
 export async function GET(request) {
   try {
-    //console.log('Fetching animals...');
+    // Ensure configuration is loaded
+    const { ensureConfigLoaded } = await import('../../../utils/sheets');
+    await ensureConfigLoaded();
     //console.log('Environment variables check:');
     //console.log('ANIMALS_SHEET_ID:', process.env.ANIMALS_SHEET_ID);
     //console.log('GOOGLE_SERVICE_ACCOUNT_EMAIL:', process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL);
