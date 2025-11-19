@@ -1,5 +1,8 @@
 import { ANIMAL_TREATMENT_SHEETS, getAnimalTreatments, getAnimalsFromSheet, getAnimals, getProtocolsFromSheet, updateAnimalInList, ensureConfigLoaded, getAllAnimalTypes } from '@/src/lib/sheets';
 
+export const runtime = 'nodejs';
+export const maxDuration = 30;
+
 const protocolsSheetId = "1DJhnTRnEImO-gD7a6gBHLvS374xkpv-_Z18tAS3AuPQ";
 const CORS_HEADERS = {
   'Content-Type': 'application/json',

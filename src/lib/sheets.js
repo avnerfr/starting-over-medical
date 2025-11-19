@@ -1,9 +1,8 @@
 // sheets.js - Utility functions for Google Sheets integration
 // This runs on the Node.js runtime in Next.js API routes
 
-const { GoogleSpreadsheet } = require('google-spreadsheet');
-const { google } = require('googleapis');
-import { env } from 'process';
+import { GoogleSpreadsheet } from 'google-spreadsheet';
+import { google } from 'googleapis';
 
 // Dictionary mapping animal types to their treatment sheets and animals
 export const ANIMAL_TREATMENT_SHEETS = new Proxy({}, {
@@ -144,7 +143,8 @@ let sheetsAuth = null;
 async function readConfigurationSheet() {
   const configSheetId = process.env.CONFIGURATION_SHEET_ID;
   if (!configSheetId) {
-    console.warn('Missing CONFIGURATION_SHEET_ID env var - skipping configuration sheet load');
+    console.warn('⚠️  Missing CONFIGURATION_SHEET_ID env var - will use environment variables directly');
+    console.warn('Please set CONFIGURATION_SHEET_ID to enable dynamic configuration loading from Google Sheet');
     return;
   }
   try {
@@ -156,13 +156,14 @@ async function readConfigurationSheet() {
       const value = row['Value'] || row._rawData?.[1];
       if (key && value) {
         process.env[key] = value;
-        console.log(`Loaded config: ${key}`);
+        console.log(`✓ Loaded config: ${key}`);
       }
     });
-    console.log('Configuration sheet loaded and environment variables set.');
+    console.log('✓ Configuration sheet loaded and environment variables set.');
     configLoaded = true;
   } catch (error) {
-    console.error('Error reading configuration sheet:', error);
+    console.error('✗ Error reading configuration sheet:', error.message);
+    console.error('Ensure CONFIGURATION_SHEET_ID is set and accessible');
     throw error;
   }
 }
@@ -188,13 +189,20 @@ if (!configLoaded && !configPromise) {
 // --- JWT auth for Google Sheets (replaces useServiceAccountAuth) ---
 function getSheetsAuth() {
   if (!sheetsAuth) {
-    if (!CREDENTIALS.client_email || !CREDENTIALS.private_key) {
+    const email = CREDENTIALS.client_email;
+    const key = CREDENTIALS.private_key;
+    
+    if (!email || !key) {
+      console.error('❌ Missing Google Sheets credentials!');
+      console.error('Set one of these options:');
+      console.error('  1. Set CONFIGURATION_SHEET_ID env var to load config from Google Sheet');
+      console.error('  2. Set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SHEETS_PRIVATE_KEY env vars directly');
       throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_SHEETS_PRIVATE_KEY env vars');
     }
     sheetsAuth = new google.auth.JWT(
-      CREDENTIALS.client_email,
+      email,
       null,
-      CREDENTIALS.private_key,
+      key,
       ['https://www.googleapis.com/auth/spreadsheets']
     );
   }

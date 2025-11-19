@@ -1,5 +1,8 @@
 import { getAllCaregivers, ensureConfigLoaded } from '@/src/lib/sheets';
 
+export const runtime = 'nodejs';
+export const maxDuration = 30;
+
 function getCorsHeaders() {
   return {
     'Content-Type': 'application/json',

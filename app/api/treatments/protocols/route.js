@@ -1,5 +1,8 @@
 import { getProtocolsFromSheet } from '@/src/lib/sheets';
 
+export const runtime = 'nodejs';
+export const maxDuration = 30;
+
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
