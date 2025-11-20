@@ -1,3 +1,4 @@
+'use client';
 
 import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -5,6 +6,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Calendar, Pill, AlertCircle } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import React from "react";
 
 
 interface Treatment {
@@ -96,6 +98,19 @@ export function Dashboard({ onSelectAnimal, onAddTreatment, email }: DashboardPr
     }
     fetchCaregiverAndAnimals();
   }, [email]);
+
+  // Update document title
+  useEffect(() => {
+    const baseTitle = "Starting Over Medical";
+
+    if (typeof document !== "undefined") {
+      if (caregiverName) {
+        document.title = `${caregiverName} - ${baseTitle}`;
+      } else {
+        document.title = baseTitle;
+      }
+    }
+  }, [caregiverName]);
 
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8 flex flex-col" style={{ backgroundColor: '#F7F3ED' }}>
