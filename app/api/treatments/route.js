@@ -1,4 +1,4 @@
-import { updateAnimalInList } from '../../../src/lib/sheets';
+import { updateAnimalInList } from '../../../utils/sheets';
 
 export async function PUT(request) {
   try {
@@ -105,7 +105,7 @@ export async function GET_PROFILE(request) {
   }
 }
 import { log } from 'console';
-import { ANIMAL_TREATMENT_SHEETS, getAnimalTreatments, addTreatmentAtTop, getAnimalsFromSheet, getAnimals, getProtocolsFromSheet, readRecentSheetsAndRows, ensureConfigLoaded, getAllAnimalTypes } from '../../../src/lib/sheets';
+import { ANIMAL_TREATMENT_SHEETS, getAnimalTreatments, addTreatmentAtTop, getAnimalsFromSheet, getAnimals, getProtocolsFromSheet, readRecentSheetsAndRows, ensureConfigLoaded, getAllAnimalTypes } from '../../../utils/sheets';
 
 
 const protocolsSheetId = "1DJhnTRnEImO-gD7a6gBHLvS374xkpv-_Z18tAS3AuPQ";
