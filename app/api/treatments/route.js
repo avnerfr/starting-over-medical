@@ -127,17 +127,23 @@ export async function GET(request) {
     }
 
     // Return animals of a specific type (read the sheet by sheetId)
-    if (animalType && !animalId) {
-      const typeInfo = ANIMAL_TREATMENT_SHEETS[animalType];
+if (animalType && !animalId) {
+      const sheets = ANIMAL_TREATMENT_SHEETS();   // <-- CALL the function
+      const typeInfo = sheets[animalType];         // <-- lookup inside returned object
+
       if (!typeInfo) {
-        return new Response(JSON.stringify({ 
-          error: 'Invalid animal type',
-          type: animalType 
-        }), {
-          status: 404,
-          headers: CORS_HEADERS
-        });
+        return new Response(
+          JSON.stringify({
+            error: 'Invalid animal type',
+            type: animalType
+          }),
+          {
+            status: 404,
+            headers: CORS_HEADERS
+          }
+        );
       }
+
 
       // Prefer live sheet data when a sheetId is configured
       if (typeInfo.sheetId) {
@@ -190,7 +196,7 @@ export async function GET(request) {
 
 
     // Get treatments for a specific animal
-    const animalTypeInfo = Object.values(ANIMAL_TREATMENT_SHEETS).find(
+    const animalTypeInfo = Object.values(ANIMAL_TREATMENT_SHEETS()).find(
       type => Object.keys(type.animals).includes(animalId)
     );
 
@@ -236,7 +242,7 @@ export async function POST(request) {
     }
 
     // Check if we have a treatment sheet for this animal
-    const animalInfo = ANIMAL_TREATMENT_SHEETS[animalId];
+    const animalInfo = ANIMAL_TREATMENT_SHEETS()[animalId];
     if (!animalInfo) {
       return new Response(JSON.stringify({ 
         error: 'No treatment sheet found for this animal',

@@ -128,7 +128,7 @@ export async function GET(request) {
 
     // Return animals of a specific type (read the sheet by sheetId)
     if (animalType && !animalId) {
-      const typeInfo = ANIMAL_TREATMENT_SHEETS[animalType];
+      const typeInfo = ANIMAL_TREATMENT_SHEETS()[animalType];
       if (!typeInfo) {
         return new Response(JSON.stringify({ 
           error: 'Invalid animal type',

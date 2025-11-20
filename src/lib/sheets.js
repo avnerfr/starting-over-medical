@@ -4,81 +4,71 @@
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { google } from 'googleapis';
 
-// Dictionary mapping animal types to their treatment sheets and animals
-export const ANIMAL_TREATMENT_SHEETS = new Proxy({}, {
-  get: (target, prop) => {
-    // Dynamically build based on current environment variables
-    const sheets = {
-      "donkey": {
-        displayName: "חמור",
-        emoji: "🫏",
-        sheetId: process.env.DONKEYS_SHEET_ID,
-        folderId: process.env.DONKEYS_DRIVE_FOLDER_ID,
-      },
-      "horse": {
-        displayName: "סוס",
-        emoji: "🐴",
-        sheetId: process.env.HORSES_SHEET_ID,
-        folderId: process.env.HORSES_DRIVE_FOLDER_ID,
-      },
-      "cow": {
-        displayName: "פרה",
-        emoji: "🐄",
-        sheetId: process.env.COWS_SHEET_ID,
-        folderId: process.env.COWS_DRIVE_FOLDER_ID, 
-      },
-      "dog": {
-        displayName: "כלב",
-        emoji: "🐕",
-        sheetId: process.env.DOGS_SHEET_ID,
-        folderId: process.env.DOGS_DRIVE_FOLDER_ID,
-      },
-      "cat": {
-        displayName: "חתול",
-        emoji: "🐈",
-        sheetId: process.env.CATS_SHEET_ID,
-        folderId: process.env.CATS_DRIVE_FOLDER_ID, 
-      },
-      "goat": {
-        displayName: "עז",
-        emoji: "🐐",
-        sheetId: process.env.GOATS_SHEET_ID,
-        folderId: process.env.GOATS_DRIVE_FOLDER_ID,
-      },
-      "sheep": {
-        displayName: "כבשה",
-        emoji: "🐑",
-        sheetId: process.env.SHEEPS_SHEET_ID,
-        folderId: process.env.SHEEPS_DRIVE_FOLDER_ID,
-      },
-      "rabbit": {
-        displayName: "ארנב",
-        emoji: "🐰",
-        sheetId: process.env.RABBITS_SHEET_ID,
-        folderId: process.env.RABBITS_DRIVE_FOLDER_ID,
-      },
-      "chicken": {
-        displayName: "עופות",
-        emoji: "🐔",
-        sheetId: process.env.CHICKENS_SHEET_ID,
-        folderId: process.env.CHICKENS_DRIVE_FOLDER_ID,
-      }
-    };
-    return sheets[prop];
-  }
+export const ANIMAL_TREATMENT_SHEETS = () => ({
+  donkey: {
+    displayName: "חמור",
+    emoji: "🫏",
+    sheetId: process.env.DONKEYS_SHEET_ID,
+    folderId: process.env.DONKEYS_DRIVE_FOLDER_ID,
+  },
+  horse: {
+    displayName: "סוס",
+    emoji: "🐴",
+    sheetId: process.env.HORSES_SHEET_ID,
+    folderId: process.env.HORSES_DRIVE_FOLDER_ID,
+  },
+  cow: {
+    displayName: "פרה",
+    emoji: "🐄",
+    sheetId: process.env.COWS_SHEET_ID,
+    folderId: process.env.COWS_DRIVE_FOLDER_ID,
+  },
+  dog: {
+    displayName: "כלב",
+    emoji: "🐕",
+    sheetId: process.env.DOGS_SHEET_ID,
+    folderId: process.env.DOGS_DRIVE_FOLDER_ID,
+  },
+  cat: {
+    displayName: "חתול",
+    emoji: "🐈",
+    sheetId: process.env.CATS_SHEET_ID,
+    folderId: process.env.CATS_DRIVE_FOLDER_ID,
+  },
+  goat: {
+    displayName: "עז",
+    emoji: "🐐",
+    sheetId: process.env.GOATS_SHEET_ID,
+    folderId: process.env.GOATS_DRIVE_FOLDER_ID,
+  },
+  sheep: {
+    displayName: "כבשה",
+    emoji: "🐑",
+    sheetId: process.env.SHEEPS_SHEET_ID,
+    folderId: process.env.SHEEPS_DRIVE_FOLDER_ID,
+  },
+  rabbit: {
+    displayName: "ארנב",
+    emoji: "🐰",
+    sheetId: process.env.RABBITS_SHEET_ID,
+    folderId: process.env.RABBITS_DRIVE_FOLDER_ID,
+  },
+  chicken: {
+    displayName: "עופות",
+    emoji: "🐔",
+    sheetId: process.env.CHICKENS_SHEET_ID,
+    folderId: process.env.CHICKENS_DRIVE_FOLDER_ID,
+  },
 });
 
 // Helper function to get all animal types
 export function getAllAnimalTypes() {
-  const animalTypes = ["donkey", "horse", "cow", "dog", "cat", "goat", "sheep", "rabbit", "chicken"];
-  return animalTypes.map(type => {
-    const info = ANIMAL_TREATMENT_SHEETS[type];
-    return {
-      id: type,
-      displayName: info.displayName,
-      emoji: info.emoji
-    };
-  });
+  const sheets = ANIMAL_TREATMENT_SHEETS();   // call the function
+  return Object.entries(sheets).map(([type, info]) => ({
+    id: type,
+    displayName: info.displayName,
+    emoji: info.emoji,
+  }));
 }
 
 // internal field name -> sheet header (Hebrew)
@@ -156,7 +146,7 @@ async function readConfigurationSheet() {
       const value = row['Value'] || row._rawData?.[1];
       if (key && value) {
         process.env[key] = value;
-        console.log(`✓ Loaded config: ${key}`);
+        //console.log(`✓ Loaded config: ${key}`);
       }
     });
     console.log('✓ Configuration sheet loaded and environment variables set.');
@@ -224,7 +214,7 @@ function getDriveClient() {
 // Find spreadsheet in folder
 async function findSpreadsheetInFolder(animalType, animalId) {
   const drive = getDriveClient();
-  const folderId = ANIMAL_TREATMENT_SHEETS[animalType].folderId;
+  const folderId = ANIMAL_TREATMENT_SHEETS()[animalType].folderId;
 
   try {
     const response = await drive.files.list({
@@ -293,12 +283,11 @@ export async function findSheetIdByName(folderId, animalName){
 // Get animals from main animals sheet
 export async function getAnimals(animalType) {
     if (configPromise) await configPromise;
-    
+    try {
     console.log('Starting getAnimals...');
-    console.log('Animals sheet ID:', ANIMAL_TREATMENT_SHEETS[animalType].sheetId);
-    console.log('Service account:', CREDENTIALS.client_email);
-
-    const doc = await getDoc(ANIMAL_TREATMENT_SHEETS[animalType].sheetId);
+    console.log('Animals sheet ID:', ANIMAL_TREATMENT_SHEETS()[animalType].sheetId);
+  
+    const doc = await getDoc(ANIMAL_TREATMENT_SHEETS()[animalType].sheetId);
     console.log('Got doc, title:', doc.title);
 
     const sheet = doc.sheetsByIndex[0];
@@ -334,8 +323,14 @@ export async function getAnimals(animalType) {
       in_treatment: row._rawData?.[headerMap['בטיפול']] || ''
     }));
 
-    console.log('Mapped animals:', animals[1]);
+    //console.log('Mapped animals:', animals[1]);
     return animals;
+    } catch (error) 
+  {
+    console.error(`Error in getAnimals: of type: ${animalType}`, error);
+    return []
+  }
+
 }
 
 // Get treatments for an animal
@@ -698,7 +693,7 @@ function parseDMY(str) {
 export async function deleteAnimalTreatmentsBetweenDates(animalType, animalName, startDateStr, endDateStr) {
   try {
     console.log(`Starting updateAnimalTreatmentsInFile for animal: ${animalName} of type: ${animalType}`);
-    const spreadsheetId = await findSheetIdByName(ANIMAL_TREATMENT_SHEETS[animalType].folderId, animalName);
+    const spreadsheetId = await findSheetIdByName(ANIMAL_TREATMENT_SHEETS()[animalType].folderId, animalName);
     if (!spreadsheetId) throw new Error('Could not find treatment sheet for animal: ' + animalName);  
     const doc = await getDoc(spreadsheetId);
     const sheet = doc.sheetsByIndex[0]; 
@@ -847,7 +842,10 @@ export async function getAnimalsForCaregiverWithTreatementsToday(caregiverName) 
     const todayStr = `${todayDate.getDate()}/${todayDate.getMonth() + 1}/${todayDate.getFullYear()}`;
     console.log(`-----------------Today's date string: ${todayStr}`);
     const animalsWithTodayTreatments = [];
-    for (const animalType of Object.keys(ANIMAL_TREATMENT_SHEETS)) {
+    // loop through all animal types
+    const sheets = ANIMAL_TREATMENT_SHEETS();
+
+    for (const animalType of Object.keys(sheets)) {
       console.log(`Processing animal type: ${animalType}`);
 
       const animals = await getAnimals(animalType);
@@ -911,8 +909,8 @@ export async function updateAnimalInList(animalType, animalName, updateData = {}
     console.log(`Starting updateAnimalInList for animal: ${animalName} of type: ${animalType}`);
     console.log('Update data:', updateData);
 
-    const spreadsheetId = ANIMAL_TREATMENT_SHEETS[animalType]?.sheetId;
-    if (!spreadsheetId) throw new Error('ANIMAL_TREATMENT_SHEETS[animalType]?.sheetId is required');
+    const spreadsheetId = ANIMAL_TREATMENT_SHEETS()[animalType]?.sheetId;
+    if (!spreadsheetId) throw new Error('ANIMAL_TREATMENT_SHEETS()[animalType]?.sheetId is required');
 
     const doc = await getDoc(spreadsheetId);
     const sheet = doc.sheetsByIndex[0];

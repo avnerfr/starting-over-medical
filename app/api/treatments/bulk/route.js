@@ -31,8 +31,8 @@ export async function POST(request) {
         headers: CORS_HEADERS
       });
     }
-    console.log('search for the animal sheet on:', ANIMAL_TREATMENT_SHEETS[animalType].folderId);
-    const animalSheetId = await findSheetIdByName(ANIMAL_TREATMENT_SHEETS[animalType].folderId, animalName);
+    console.log('search for the animal sheet on:', ANIMAL_TREATMENT_SHEETS()[animalType].folderId);
+    const animalSheetId = await findSheetIdByName(ANIMAL_TREATMENT_SHEETS()[animalType].folderId, animalName);
     console.log('found sheet id:', animalSheetId);
 
     if (!animalSheetId) {

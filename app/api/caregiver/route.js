@@ -23,7 +23,6 @@ export async function GET(req) {
   try {
     await ensureConfigLoaded();
     
-    console.log("Caregiver fetching from req:", req);
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
     console.log("Caregiver fetching from email:", email);
