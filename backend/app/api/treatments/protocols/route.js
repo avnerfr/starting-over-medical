@@ -1,4 +1,4 @@
-import { getProtocolsFromSheet } from '../../../../utils/sheets';
+import { getProtocolsFromSheet } from '@/src/lib/sheets';
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',

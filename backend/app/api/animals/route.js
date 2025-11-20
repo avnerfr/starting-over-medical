@@ -1,4 +1,4 @@
-import { getAnimals, getAnimalsForCaregiverWithTreatementsToday } from '../../../utils/sheets';
+import { getAnimals, getAnimalsForCaregiverWithTreatementsToday } from '@/src/lib/sheets';
 
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
@@ -14,7 +14,7 @@ export async function OPTIONS() {
 export async function GET(request) {
   try {
     // Ensure configuration is loaded
-    const { ensureConfigLoaded } = await import('../../../utils/sheets');
+    const { ensureConfigLoaded } = await import('@/src/lib/sheets');
     await ensureConfigLoaded();
     //console.log('Environment variables check:');
     //console.log('ANIMALS_SHEET_ID:', process.env.ANIMALS_SHEET_ID);

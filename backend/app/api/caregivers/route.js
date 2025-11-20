@@ -1,4 +1,4 @@
-import { getAllCaregivers } from '../../../utils/sheets';
+import { getAllCaregivers } from '@/src/lib/sheets';
 
 // CORS headers
 function getCorsHeaders() {
@@ -21,7 +21,7 @@ export async function OPTIONS(req) {
 export async function GET(req) {
   try {
     // Ensure configuration is loaded
-    const { ensureConfigLoaded } = await import('../../../utils/sheets');
+    const { ensureConfigLoaded } = await import('@/src/lib/sheets');
     await ensureConfigLoaded();
     
     const caregivers = await getAllCaregivers();

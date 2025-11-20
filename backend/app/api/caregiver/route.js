@@ -1,5 +1,5 @@
 import { Folder } from 'lucide-react';
-import { getCaregiverNameFromSheet } from '../../../utils/sheets';
+import { getCaregiverNameFromSheet } from '@/src/lib/sheets';
 import { env } from 'process';
 
 // CORS headers
@@ -23,7 +23,7 @@ export async function OPTIONS(req) {
 export async function GET(req) {
   try {
     // Ensure configuration is loaded
-    const { ensureConfigLoaded } = await import('../../../utils/sheets');
+    const { ensureConfigLoaded } = await import('@/src/lib/sheets');
     await ensureConfigLoaded();
     
     console.log("%%%%%%% Caregiver fetching from req:", req);
