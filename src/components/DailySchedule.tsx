@@ -1,22 +1,22 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Sunrise, Sun, Moon, CheckCircle2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Sunrise, Sun, Moon, CheckCircle2, Plus, Loader2 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { toast } from "sonner";
 
 interface Treatment {
   id: number;
-  time: string;
   animalName: string;
   animalType: string;
   animalImage: string;
   treatmentType: string;
+  time: string;
+  timeSlot?: string; // morning, noon, evening, general
   caregiver: string;
-  status: "pending" | "completed";
 }
 
 interface DailyScheduleProps {
@@ -24,199 +24,179 @@ interface DailyScheduleProps {
   onAddTreatment: () => void;
 }
 
-type TimePeriod = "morning" | "noon" | "evening";
-
-interface TimeSection {
-  id: TimePeriod;
-  title: string;
-  timeRange: string;
-  icon: any;
-  bgColor: string;
-  headerBgColor: string;
+interface ConfirmDialog {
+  open: boolean;
+  treatmentId: number | null;
+  isCompleted: boolean;
 }
 
-const timeSections: TimeSection[] = [
+const timeSections = [
   {
     id: "morning",
     title: "בוקר",
-    timeRange: "06:00–11:59",
+    timeRange: "06:00 - 12:00",
     icon: Sunrise,
-    bgColor: "#FFFFFF",
-    headerBgColor: "#E8F5E9"
+    headerBgColor: "#FFF2CC",
+    bgColor: "#FFFBF0"
   },
   {
-    id: "noon",
+    id: "afternoon", 
     title: "צהריים",
-    timeRange: "12:00–17:59",
+    timeRange: "12:00 - 18:00",
     icon: Sun,
-    bgColor: "#F7F3ED",
-    headerBgColor: "#FFF9F0"
+    headerBgColor: "#FFE6CC",
+    bgColor: "#FFF8F0"
   },
   {
     id: "evening",
     title: "ערב",
-    timeRange: "18:00–23:59",
+    timeRange: "18:00 - 00:00", 
     icon: Moon,
-    bgColor: "#F5F5F5",
-    headerBgColor: "#E3F2FD"
+    headerBgColor: "#E6F3FF",
+    bgColor: "#F0F8FF"
   }
 ];
 
-const scheduleDays = [
-  { date: "22.10.2025", day: "רביעי", isToday: true },
-  { date: "23.10.2025", day: "חמישי", isToday: false },
-  { date: "24.10.2025", day: "שישי", isToday: false },
-  { date: "25.10.2025", day: "שבת", isToday: false },
-];
-
-const treatmentsByDay: Record<string, Treatment[]> = {
-  "22.10.2025": [
-    {
-      id: 1,
-      time: "08:00",
-      animalName: "מקס",
-      animalType: "כלב",
-      animalImage: "https://images.unsplash.com/photo-1672664408117-a58d7e489264?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXNjdWVkJTIwZG9nJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYxMTI3MTE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "בדיקת בוקר",
-      caregiver: "דנה כהן",
-      status: "completed"
-    },
-    {
-      id: 2,
-      time: "10:00",
-      animalName: "לונה",
-      animalType: "חתולה",
-      animalImage: "https://images.unsplash.com/photo-1752966597883-fc8714aac10a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYXQlMjByZXNjdWUlMjBhbmltYWx8ZW58MXx8fHwxNzYxMTI3MTE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "מתן אנטיביוטיקה",
-      caregiver: "יוסי לוי",
-      status: "completed"
-    },
-    {
-      id: 3,
-      time: "14:00",
-      animalName: "מקס",
-      animalType: "כלב",
-      animalImage: "https://images.unsplash.com/photo-1672664408117-a58d7e489264?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXNjdWVkJTIwZG9nJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYxMTI3MTE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "תרופות יומיות",
-      caregiver: "דנה כהן",
-      status: "pending"
-    },
-    {
-      id: 4,
-      time: "16:30",
-      animalName: "סנדי",
-      animalType: "סוס",
-      animalImage: "https://images.unsplash.com/photo-1688798498307-7a8ae27a3d27?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3JzZSUyMGZhcm0lMjBhbmltYWx8ZW58MXx8fHwxNzYxMTI3MTE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "החלפת חבישה",
-      caregiver: "דנה כהן",
-      status: "pending"
-    },
-    {
-      id: 9,
-      time: "19:00",
-      animalName: "לונה",
-      animalType: "חתולה",
-      animalImage: "https://images.unsplash.com/photo-1752966597883-fc8714aac10a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYXQlMjByZXNjdWUlMjBhbmltYWx8ZW58MXx8fHwxNzYxMTI3MTE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "תרופות ערב",
-      caregiver: "דנה כהן",
-      status: "pending"
-    }
-  ],
-  "23.10.2025": [
-    {
-      id: 5,
-      time: "09:00",
-      animalName: "שוקולד",
-      animalType: "ארנב",
-      animalImage: "https://images.unsplash.com/photo-1639060127790-01bf9ce1e048?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyYWJiaXQlMjBhbmltYWx8ZW58MXx8fHwxNzYxMTIwMzU5fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "בדיקת שיניים",
-      caregiver: "ד״ר משה אבידן",
-      status: "pending"
-    },
-    {
-      id: 6,
-      time: "10:00",
-      animalName: "לונה",
-      animalType: "חתולה",
-      animalImage: "https://images.unsplash.com/photo-1752966597883-fc8714aac10a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYXQlMjByZXNjdWUlMjBhbmltYWx8ZW58MXx8fHwxNzYxMTI3MTE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "בדיקת מעקב",
-      caregiver: "ד״ר משה אבידן",
-      status: "pending"
-    },
-    {
-      id: 10,
-      time: "15:00",
-      animalName: "מקס",
-      animalType: "כלב",
-      animalImage: "https://images.unsplash.com/photo-1672664408117-a58d7e489264?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXNjdWVkJTIwZG9nJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYxMTI3MTE0fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "תרופות יומיות",
-      caregiver: "יוסי לוי",
-      status: "pending"
-    }
-  ],
-  "24.10.2025": [
-    {
-      id: 7,
-      time: "09:00",
-      animalName: "בילי",
-      animalType: "עז",
-      animalImage: "https://images.unsplash.com/photo-1629713816766-e6fcab2867bf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb2F0JTIwZmFybSUyMGFuaW1hbHxlbnwxfHx8fDE3NjEwNDA1NTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "חיסון שנתי",
-      caregiver: "ד״ר משה אבידן",
-      status: "pending"
-    }
-  ],
-  "25.10.2025": [
-    {
-      id: 8,
-      time: "08:00",
-      animalName: "צמר",
-      animalType: "כבשה",
-      animalImage: "https://images.unsplash.com/photo-1614183654058-0bac05af5ab0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzaGVlcCUyMGZhcm18ZW58MXx8fHwxNzYxMTE5Mjg3fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      treatmentType: "גזירת צמר ובדיקה",
-      caregiver: "יוסי לוי",
-      status: "pending"
-    }
-  ]
+// Helper function to get Hebrew day name
+const getHebrewDayName = (date: Date): string => {
+  const days = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  return days[date.getDay()];
 };
 
-// Helper function to determine time period from time string
-const getTimePeriod = (timeString: string): TimePeriod => {
-  const [hours] = timeString.split(":").map(Number);
+// Helper function to format date as DD.MM.YYYY
+const formatDate = (date: Date): string => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}.${month}.${year}`;
+};
+
+// Generate schedule days dynamically (2 days before today, today, 2 days after)
+const generateScheduleDays = () => {
+  const today = new Date();
+  const days = [];
   
-  if (hours >= 6 && hours < 12) return "morning";
-  if (hours >= 12 && hours < 18) return "noon";
-  return "evening";
+  for (let i = -2; i <= 2; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    days.push({
+      date: formatDate(date),
+      day: getHebrewDayName(date),
+      isToday: i === 0,
+      dateObj: date
+    });
+  }
+  
+  return days;
 };
 
-// Helper function to group treatments by time period
-const groupTreatmentsByPeriod = (treatments: Treatment[]) => {
-  const grouped: Record<TimePeriod, Treatment[]> = {
-    morning: [],
-    noon: [],
-    evening: []
+export default function DailySchedule({ onSelectAnimal, onAddTreatment }: DailyScheduleProps) {
+  const [scheduleDays] = useState(generateScheduleDays());
+  const [selectedDayIndex, setSelectedDayIndex] = useState(2); // Index 2 is today (middle of the array)
+  const [completedTreatments, setCompletedTreatments] = useState<Set<number>>(new Set([1, 3]));
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog>({ 
+    open: false, 
+    treatmentId: null, 
+    isCompleted: false 
+  });
+  const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedDay = scheduleDays[selectedDayIndex];
+
+  // Fetch treatments from API
+  useEffect(() => {
+    const fetchTreatments = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch('/api/treatments/today');
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('Fetched treatments data:', data);
+          // Convert API data to our Treatment interface
+          const formattedTreatments: Treatment[] = data.treatments.map((treatment: any) => ({
+            id: Math.abs(hashCode(treatment.id)), // Convert string ID to number
+            animalName: treatment.animalName,
+            animalType: treatment.animalType,
+            animalImage: treatment.animalImage,
+            treatmentType: treatment.treatmentType,
+            time: treatment.time,
+            timeSlot: treatment.timeSlot,
+            caregiver: treatment.caregiver
+          }));
+          
+          setTreatments(formattedTreatments);
+          console.log(`Loaded ${formattedTreatments.length} treatments from Google Sheets`);
+        } else {
+          setError(data.error || 'Failed to fetch treatments');
+          console.error('Failed to fetch treatments:', data.error);
+        }
+      } catch (err) {
+        setError('Failed to connect to server');
+        console.error('Error fetching treatments:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTreatments();
+  }, []);
+
+  // Helper function to convert string to number hash
+  const hashCode = (str: string): number => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash;
   };
 
-  treatments.forEach(treatment => {
-    const period = getTimePeriod(treatment.time);
-    grouped[period].push(treatment);
-  });
+  // Group treatments by time section, filtering out general treatments for the left side
+  const groupedTreatments = treatments
+    .filter(treatment => treatment.timeSlot !== 'general') // Only show scheduled treatments on left
+    .reduce((acc, treatment) => {
+      let section: string;
+      
+      // Use timeSlot if available, otherwise fall back to time-based grouping
+      if (treatment.timeSlot) {
+        switch (treatment.timeSlot) {
+          case 'morning':
+            section = "morning";
+            break;
+          case 'noon':
+            section = "afternoon";
+            break;
+          case 'evening':
+            section = "evening";
+            break;
+          default:
+            section = "morning"; // fallback
+        }
+      } else {
+        // Fallback to hour-based grouping
+        const hour = parseInt(treatment.time.split(':')[0]);
+        if (hour >= 6 && hour < 12) {
+          section = "morning";
+        } else if (hour >= 12 && hour < 18) {
+          section = "afternoon"; 
+        } else {
+          section = "evening";
+        }
+      }
+      
+      if (!acc[section]) acc[section] = [];
+      acc[section].push(treatment);
+      return acc;
+    }, {} as Record<string, Treatment[]>);
 
-  return grouped;
-};
-
-export function DailySchedule({ onSelectAnimal, onAddTreatment }: DailyScheduleProps) {
-  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
-  const [completedTreatments, setCompletedTreatments] = useState<Set<number>>(new Set([1, 2])); // Initialize with already completed treatments
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    treatmentId: number | null;
-    isCompleted: boolean;
-  }>({ open: false, treatmentId: null, isCompleted: false });
-  
-  const selectedDay = scheduleDays[selectedDayIndex];
-  const treatments = treatmentsByDay[selectedDay.date] || [];
-  const groupedTreatments = groupTreatmentsByPeriod(treatments);
+  // Get all treatments for the overview (right side) - includes general treatments
+  const overviewTreatments = treatments;
 
   const nextDay = () => {
     if (selectedDayIndex < scheduleDays.length - 1) {
@@ -231,19 +211,18 @@ export function DailySchedule({ onSelectAnimal, onAddTreatment }: DailyScheduleP
   };
 
   const handleCheckboxClick = (e: React.MouseEvent, treatmentId: number) => {
-    e.stopPropagation(); // Prevent card click
-    const isCurrentlyCompleted = completedTreatments.has(treatmentId);
-    
-    setConfirmDialog({
-      open: true,
-      treatmentId,
-      isCompleted: isCurrentlyCompleted
+    e.stopPropagation();
+    const isCompleted = completedTreatments.has(treatmentId);
+    setConfirmDialog({ 
+      open: true, 
+      treatmentId, 
+      isCompleted 
     });
   };
 
   const handleConfirmToggle = () => {
-    if (confirmDialog.treatmentId === null) return;
-
+    if (!confirmDialog.treatmentId) return;
+    
     const newCompletedTreatments = new Set(completedTreatments);
     
     if (confirmDialog.isCompleted) {
@@ -337,98 +316,198 @@ export function DailySchedule({ onSelectAnimal, onAddTreatment }: DailyScheduleP
 
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8" style={{ backgroundColor: '#F7F3ED' }}>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="mb-2 text-right text-[24px]">לוח זמנים יומי</h1>
           <p className="text-muted-foreground text-right">טיפולים מתוכננים לפי יום ושעה</p>
         </div>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={prevDay}
-                disabled={selectedDayIndex === 0}
-              >
-                <ChevronRight className="w-5 h-5" />
-              </Button>
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin" />
+            <span className="ml-2">טוען טיפולים מגוגל שיטס...</span>
+          </div>
+        )}
 
-              <div className="text-center">
-                <CardTitle className="flex items-center justify-center gap-2">
-                  <CalendarIcon className="w-5 h-5" />
-                  {selectedDay.day}, {selectedDay.date}
-                </CardTitle>
-                {selectedDay.isToday && (
-                  <Badge className="mt-2" style={{ backgroundColor: '#CFE4D3', color: '#333333' }}>
-                    היום
-                  </Badge>
-                )}
-              </div>
+        {/* Error State */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700 text-right">שגיאה בטעינת הטיפולים: {error}</p>
+          </div>
+        )}
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={nextDay}
-                disabled={selectedDayIndex === scheduleDays.length - 1}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
+        {/* Split Layout Container */}
+        {!loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Side: Current Schedule View */}
+            <div className="space-y-6">
+              <Card className="mb-6">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={prevDay}
+                      disabled={selectedDayIndex === 0}
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </Button>
 
-        {treatments.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              אין טיפולים מתוכננים ליום זה
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {timeSections.map((section) => {
-              const sectionTreatments = groupedTreatments[section.id];
-              const Icon = section.icon;
+                    <div className="text-center">
+                      <CardTitle className="flex items-center justify-center gap-2">
+                        <CalendarIcon className="w-5 h-5" />
+                        {selectedDay.day}, {selectedDay.date}
+                      </CardTitle>
+                      {selectedDay.isToday && (
+                        <Badge className="mt-2" style={{ backgroundColor: '#CFE4D3', color: '#333333' }}>
+                          היום
+                        </Badge>
+                      )}
+                    </div>
 
-              return (
-                <div key={section.id} className="rounded-xl overflow-hidden border" style={{ borderColor: '#E7E7E7' }}>
-                  <div 
-                    className="p-4 border-b" 
-                    style={{ 
-                      backgroundColor: section.headerBgColor,
-                      borderColor: '#E7E7E7'
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className="w-6 h-6" style={{ color: '#A67C52' }} />
-                      <div>
-                        <h3 className="text-right">{section.title}</h3>
-                        <p className="text-sm text-muted-foreground">{section.timeRange}</p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={nextDay}
+                      disabled={selectedDayIndex === scheduleDays.length - 1}
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </CardHeader>
+              </Card>
+
+              {treatments.filter(t => t.timeSlot !== 'general').length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    אין טיפולים מתוכננים ליום זה
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-6">
+                  {timeSections.map((section) => {
+                    const sectionTreatments = groupedTreatments[section.id];
+                    const Icon = section.icon;
+
+                    return (
+                      <div key={section.id} className="rounded-xl overflow-hidden border" style={{ borderColor: '#E7E7E7' }}>
+                        <div 
+                          className="p-4 border-b" 
+                          style={{ 
+                            backgroundColor: section.headerBgColor,
+                            borderColor: '#E7E7E7'
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon className="w-6 h-6" style={{ color: '#A67C52' }} />
+                            <div>
+                              <h3 className="text-right">{section.title}</h3>
+                              <p className="text-sm text-muted-foreground">{section.timeRange}</p>
+                            </div>
+                            <Badge variant="outline" className="mr-auto">
+                              {sectionTreatments?.length || 0} טיפולים
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div 
+                          className="p-4"
+                          style={{ backgroundColor: section.bgColor }}
+                        >
+                          {!sectionTreatments || sectionTreatments.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                              אין טיפולים מתוכננים ב{section.title.toLowerCase()}
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {sectionTreatments.map(renderTreatment)}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <Badge variant="outline" className="mr-auto">
-                        {sectionTreatments.length} טיפולים
-                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Right Side: Overall Treatments for Today */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-right">טיפולים כלליים להיום</CardTitle>
+                  <CardDescription className="text-right">
+                    סקירה כללית של כל הטיפולים המתוכננים ל-{selectedDay.date}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Statistics */}
+                    <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">
+                          {overviewTreatments.filter(t => completedTreatments.has(t.id)).length}
+                        </div>
+                        <div className="text-sm text-gray-600">בוצעו</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">
+                          {overviewTreatments.filter(t => !completedTreatments.has(t.id)).length}
+                        </div>
+                        <div className="text-sm text-gray-600">ממתינים</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{overviewTreatments.length}</div>
+                        <div className="text-sm text-gray-600">סה"כ</div>
+                      </div>
+                    </div>
+
+                    {/* Treatment Overview by Animal */}
+                    <div className="space-y-3">
+                      <h3 className="font-semibold text-right">טיפולים לפי חיה</h3>
+                      {overviewTreatments.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          אין טיפולים להיום
+                        </div>
+                      ) : (
+                        Object.entries(
+                          overviewTreatments.reduce((acc, treatment) => {
+                            const key = treatment.animalName;
+                            if (!acc[key]) acc[key] = [];
+                            acc[key].push(treatment);
+                            return acc;
+                          }, {} as Record<string, Treatment[]>)
+                        ).map(([animalName, animalTreatments]) => (
+                          <div key={animalName} className="p-3 border rounded-lg bg-white">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium">{animalName}</h4>
+                              <Badge variant="outline">
+                                {animalTreatments.length} טיפולים
+                              </Badge>
+                            </div>
+                            <div className="space-y-1">
+                              {animalTreatments.map(treatment => (
+                                <div key={treatment.id} className="flex items-center justify-between text-sm">
+                                  <span>{treatment.time} - {treatment.treatmentType}</span>
+                                  <div className="flex items-center gap-1">
+                                    {completedTreatments.has(treatment.id) ? (
+                                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                    ) : (
+                                      <Clock className="w-4 h-4 text-orange-500" />
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
-
-                  <div 
-                    className="p-4"
-                    style={{ backgroundColor: section.bgColor }}
-                  >
-                    {sectionTreatments.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        אין טיפולים מתוכננים ב{section.title.toLowerCase()}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {sectionTreatments.map(renderTreatment)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
         

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Login } from "./components/Login";
 import { Dashboard } from "./components/Dashboard";
-import { DailySchedule } from "./components/DailySchedule";
+import DailySchedule from "./components/DailySchedule";
 import { AnimalProfile } from "./components/AnimalProfile";
 import { AddTreatment } from "./components/AddTreatment";
 import { Navbar } from "./components/Navbar";

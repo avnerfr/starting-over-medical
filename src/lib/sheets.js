@@ -41,12 +41,12 @@ export const ANIMAL_TREATMENT_SHEETS = () => ({
     sheetId: process.env.GOATS_SHEET_ID,
     folderId: process.env.GOATS_DRIVE_FOLDER_ID,
   },
-  sheep: {
-    displayName: "כבשה",
-    emoji: "🐑",
-    sheetId: process.env.SHEEPS_SHEET_ID,
-    folderId: process.env.SHEEPS_DRIVE_FOLDER_ID,
-  },
+  //sheep: {
+  //  displayName: "כבשה",
+  //  emoji: "🐑",
+  //  sheetId: process.env.SHEEPS_SHEET_ID,
+  //  folderId: process.env.SHEEPS_DRIVE_FOLDER_ID,
+  //},
   rabbit: {
     displayName: "ארנב",
     emoji: "🐰",
@@ -66,6 +66,7 @@ export const ANIMAL_TREATMENT_SHEETS = () => ({
     folderId: process.env.PIGS_DRIVE_FOLDER_ID,
   },
 });
+
 
 // Helper function to get all animal types
 export function getAllAnimalTypes() {
@@ -117,6 +118,23 @@ Object.defineProperty(global, 'CREDENTIALS', {
 
 // Initialize configuration from sheet on module load
 let configLoaded = false;
+
+// Cache for reducing API calls
+const apiCache = new Map();
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
+function getCachedData(key) {
+  const cached = apiCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    console.log(`✓ Using cached data for: ${key}`);
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedData(key, data) {
+  apiCache.set(key, { data, timestamp: Date.now() });
+}
 let configPromise = null;
 
 // Log credentials (without revealing the full private key)
@@ -137,7 +155,9 @@ let sheetsAuth = null;
 
 // read configuration sheet and set all configurations
 async function readConfigurationSheet() {
+  await ensureConfigLoaded();
   const configSheetId = process.env.CONFIGURATION_SHEET_ID;
+  console.log('@@@@@@@@@@@Reading configuration sheet with ID:', configSheetId);
   if (!configSheetId) {
     console.warn('⚠️  Missing CONFIGURATION_SHEET_ID env var - will use environment variables directly');
     console.warn('Please set CONFIGURATION_SHEET_ID to enable dynamic configuration loading from Google Sheet');
@@ -219,6 +239,7 @@ function getDriveClient() {
 
 // Find spreadsheet in folder
 async function findSpreadsheetInFolder(animalType, animalId) {
+   await ensureConfigLoaded();
   const drive = getDriveClient();
   const folderId = ANIMAL_TREATMENT_SHEETS()[animalType].folderId;
 
@@ -242,9 +263,25 @@ async function findSpreadsheetInFolder(animalType, animalId) {
   }
 }
 
+// Cache for in-flight document loads (promises)
+const docLoadCache = new Map();
+
 // Get or cache spreadsheet document
 async function getDoc(spreadsheetId) {
-  if (!docCache.has(spreadsheetId)) {
+  // Check if already loaded
+  if (docCache.has(spreadsheetId)) {
+    console.log(`Using cached document for: ${spreadsheetId}`);
+    return docCache.get(spreadsheetId);
+  }
+  
+  // Check if currently loading
+  if (docLoadCache.has(spreadsheetId)) {
+    console.log(`Waiting for in-flight load of: ${spreadsheetId}`);
+    return await docLoadCache.get(spreadsheetId);
+  }
+  
+  // Start loading and cache the promise
+  const loadPromise = (async () => {
     try {
       console.log('Creating new GoogleSpreadsheet instance...');
       const auth = getSheetsAuth();
@@ -255,12 +292,17 @@ async function getDoc(spreadsheetId) {
       console.log('Document loaded:', doc.title);
 
       docCache.set(spreadsheetId, doc);
+      return doc;
     } catch (error) {
-      console.error('Error in getDoc:', error);
+      console.error('Error in getDoc');
       throw error;
+    } finally {
+      docLoadCache.delete(spreadsheetId);
     }
-  }
-  return docCache.get(spreadsheetId);
+  })();
+  
+  docLoadCache.set(spreadsheetId, loadPromise);
+  return await loadPromise;
 }
 
 // Find sheet ID by animal name
@@ -289,6 +331,12 @@ export async function findSheetIdByName(folderId, animalName){
 // Get animals from main animals sheet
 export async function getAnimals(animalType) {
     if (configPromise) await configPromise;
+    
+    // Check cache first
+    const cacheKey = `animals_${animalType}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) return cached;
+    
     try {
     console.log('Starting getAnimals...');
     console.log('Animals sheet ID:', ANIMAL_TREATMENT_SHEETS()[animalType].sheetId);
@@ -330,6 +378,7 @@ export async function getAnimals(animalType) {
     }));
 
     //console.log('Mapped animals:', animals[1]);
+    setCachedData(cacheKey, animals);
     return animals;
     } catch (error) 
   {
@@ -359,8 +408,7 @@ export async function getAnimalTreatments(animalType, animalId) {
     headers.forEach((name, idx) => {
       headerMap[name.trim()] = idx;
     });
-
-    const treatments = rows.map(row => ({
+    const treatmentsMap = rows.map(row => ({
       date: row._rawData?.[headerMap['תאריך']] || row._rawData?.[0] || '',
       day: row._rawData?.[headerMap['יום']] || '',
       morning: row._rawData?.[headerMap['בוקר']] || '',
@@ -375,7 +423,8 @@ export async function getAnimalTreatments(animalType, animalId) {
       notes: row._rawData?.[headerMap['הערות']] || ''
     }));
 
-    return treatments;
+
+    return treatmentsMap;
   } catch (error) {
     console.error(`Error fetching treatments for animal ${animalId}:`, error);
     return [];
@@ -692,7 +741,11 @@ export async function addTreatmentAtTop(spreadsheetId, rowData = {}) {
 
 // Helper to parse date in DD/MM/YYYY format
 function parseDMY(str) {
-  const [day, month, year] = str.split('/').map(Number);
+  if (!str) return 0;
+  const parts = str.toString().split('/');
+  if (parts.length !== 3) return 0;
+  const [day, month, year] = parts.map(Number);
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return 0;
   return (year * 10000) + (month * 100) + day;
 }
 
@@ -780,8 +833,7 @@ export async function sortAnimalTreatmentsByDateDescending(spreadsheetId){
 // Get caregiver name from sheet by email
 export async function getCaregiverNameFromSheet(email) {
   try {
-    if(!configLoaded) await configPromise;
-    
+    await ensureConfigLoaded();
     const spreadsheetId = process.env.CAREGIVERS_SHEET_ID;
     console.log(`#$#$Starting getCaregiverNameFromSheet for sheetID: ${spreadsheetId}`);  
     if (!spreadsheetId) throw new Error('Could not find caregiver sheet' );  
@@ -856,16 +908,12 @@ export async function getAnimalsForCaregiverWithTreatementsToday(caregiverName) 
       console.log(`Processing animal type: ${animalType}`);
 
       const animals = await getAnimals(animalType);
-      console.log(`Fetched ${animals.length} animals for type ${animalType}`);
       
       const assignedAnimals = animals.filter(animal => {
         const inTreatementsField = (animal.in_treatment || '').toString();  
         const caregivers = inTreatementsField.split(',').map(name => name.trim());
         return caregivers.includes(caregiverName);
       });
-      console.log(`Found ${assignedAnimals.length} assigned animals for caregiver ${caregiverName} in type ${animalType}`);
-      console.log(`Assigned animals: ${assignedAnimals.map(a => a.id).join(', ')}`);
-     
       for (const animal of assignedAnimals) {
         const spreadsheetId = await findSpreadsheetInFolder(animalType, animal.id);
         console.log(`Animal ID: ${animal.id}, Spreadsheet ID: ${spreadsheetId}`);
@@ -873,7 +921,7 @@ export async function getAnimalsForCaregiverWithTreatementsToday(caregiverName) 
           console.log(`No treatment sheet found for animal ID: ${animal.id}`);
           continue;
         }
-        if(await hasTreatmentToday(spreadsheetId, todayStr)) {
+        if((await hasTreatmentToday(spreadsheetId, todayStr)).hasTreatment) {
           animal.animalType = animalType;
           animalsWithTodayTreatments.push(animal);
           console.log(`Animal : ${animal.name} has treatment today.`);
@@ -889,24 +937,121 @@ export async function getAnimalsForCaregiverWithTreatementsToday(caregiverName) 
 }
 
 // Check if sheet has treatment today
+// Cache for in-flight hasTreatmentToday calls
+const treatmentCheckCache = new Map();
+
 export async function hasTreatmentToday(sheetId, todayStr) {
+  const cacheKey = `treatment_${sheetId}_${todayStr}`;
+  
+  // Check completed cache first
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    console.log(`Using cached treatment check for ${sheetId} on ${todayStr}`);
+    return cached;
+  }
+  
+  // Check if already in progress
+  if (treatmentCheckCache.has(cacheKey)) {
+    console.log(`Waiting for in-flight treatment check for ${sheetId} on ${todayStr}`);
+    return await treatmentCheckCache.get(cacheKey);
+  }
+  
+  // Start the check and cache the promise
+  const checkPromise = (async () => {
+    try {
+      return await _hasTreatmentTodayImpl(sheetId, todayStr, cacheKey);
+    } finally {
+      treatmentCheckCache.delete(cacheKey);
+    }
+  })();
+  
+  treatmentCheckCache.set(cacheKey, checkPromise);
+  return await checkPromise;
+}
+
+async function _hasTreatmentTodayImpl(sheetId, todayStr, cacheKey) {
   try {  
+    let hasTreatment = false;
+    let treatmentTimes = [];
     console.log(`Starting hasTreatmentToday for sheetID: ${sheetId} and date: ${todayStr}`);  
     if (!sheetId) throw new Error('sheetId is required');  
     const doc = await getDoc(sheetId);  
     const sheet = doc.sheetsByIndex[0];  
     const rows = await sheet.getRows(); 
+    
+    console.log(`Got ${rows.length} rows for treatment check`);
+    
+    // Check if we have any rows
+    if (rows.length === 0) {
+      const result = { hasTreatment: false, treatmentTimes: [] };
+      setCachedData(cacheKey, result);
+      return result;
+    }
+    
+    // Build header map from the sheet's header values
+    const headerMap = {};
+    if (sheet.headerValues) {
+      sheet.headerValues.forEach((header, index) => {
+        if (header) headerMap[header.trim()] = index;
+      });
+    }
+    
+    // Column indices (fallback if header mapping doesn't work)
+    const morningCol = headerMap['בוקר'] !== undefined ? headerMap['בוקר'] : 2;
+    const noonCol = headerMap['צהריים'] !== undefined ? headerMap['צהריים'] : 3;
+    const eveningCol = headerMap['ערב'] !== undefined ? headerMap['ערב'] : 4;
+    
     for(const row of rows) {
       const stringDate = row._rawData?.[0];
-      if(parseDMY(stringDate) === parseDMY(todayStr)) {
-        console.log(`Found treatment for today: ${todayStr} in row date: ${row._rawData?.[0]}`);
-        return true;
+      if(!stringDate || !todayStr) continue;
+      
+      const parsedRowDate = parseDMY(stringDate);
+      const parsedTodayDate = parseDMY(todayStr);
+      
+      // Debug: log first few comparisons
+      if(rows.indexOf(row) < 3) {
+        console.log(`Comparing row date "${stringDate}" (parsed: ${parsedRowDate}) with today "${todayStr}" (parsed: ${parsedTodayDate})`);
+      }
+      
+      if(parsedRowDate === parsedTodayDate) {
+        console.log(`✓ Found treatment for today: ${todayStr} in row date: ${stringDate}`);
+        hasTreatment = true;
+        
+        const morningValue = row._rawData?.[morningCol];
+        const noonValue = row._rawData?.[noonCol];
+        const eveningValue = row._rawData?.[eveningCol];
+        
+        if(morningValue === true || morningValue === 'TRUE' || morningValue === 'true') {
+          treatmentTimes.push('morning');
+        }
+        if(noonValue === true || noonValue === 'TRUE' || noonValue === 'true') {
+          treatmentTimes.push('noon');
+        }
+        if(eveningValue === true || eveningValue === 'TRUE' || eveningValue === 'true') {
+          treatmentTimes.push('evening');
+        }
+        
+        // If all time-specific treatments are false, it's a general treatment
+        const isMorningFalse = morningValue === 'FALSE' || morningValue === 'false' || morningValue === false;
+        const isNoonFalse = noonValue === 'FALSE' || noonValue === 'false' || noonValue === false;
+        const isEveningFalse = eveningValue === 'FALSE' || eveningValue === 'false' || eveningValue === false;
+        
+        if(isMorningFalse && isNoonFalse && isEveningFalse) {
+          treatmentTimes.push('general');
+        }
+        
+        // If no time slots are specified but there's a treatment row, it's general
+        if(treatmentTimes.length === 0) {
+          treatmentTimes.push('general');
+        }
       }
     }
-    return false;
+    const result = { hasTreatment, treatmentTimes };
+    setCachedData(cacheKey, result);
+    return result;
   } catch (error) {
     console.error('Error in hasTreatmentToday:', error);
-    return false;
+    return { hasTreatment: false, treatmentTimes: [] };
   }
 }
 
@@ -984,5 +1129,46 @@ export async function updateAnimalInList(animalType, animalName, updateData = {}
   } catch (error) {
     console.error('Error in updateAnimalInList:', error);
     throw error;
+  }
+}
+
+/*-----------------------
+  function to collect each file that was edited in the last two weeks by folder id and check if each file has treatments today
+  -----------------------*/
+  
+export async function getRecentlyEditedFilesInFolderWithTreatmentsToday(folderId) {
+  try {
+    const filesWithTreatmentsToday = [];
+    console.log(`Starting getRecentlyEditedFilesInFolder for folderID: ${folderId}`);  
+    if (!folderId) throw new Error('folderId is required'); 
+    const drive = getDriveClient();
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 1);// - 14); !!!!!!!!!!!!!!!!!!!!
+    //twoWeeksAgo.setDate(twoWeeksAgo.getDate());
+    const twoWeeksAgoISO = twoWeeksAgo.toISOString();
+    
+    // Create today's date string in DD/MM/YYYY format to match sheet format
+    const todayDate = new Date();
+    const todayStr = `${todayDate.getDate()}/${todayDate.getMonth() + 1}/${todayDate.getFullYear()}`;
+    
+    // list file names in folder modified in last two weeks 
+    const tempResponse = await drive.files.list({
+      q: `'${folderId}' in parents and modifiedTime >= '${twoWeeksAgoISO}' and mimeType='application/vnd.google-apps.spreadsheet'`,
+      fields: 'files(id, name, modifiedTime)',
+      spaces: 'drive'
+    });
+    for (const file of tempResponse.data.files) {
+      const { hasTreatment,treatmentTimes} = await hasTreatmentToday(file.id, todayStr);
+      await new Promise(resolve => setTimeout(resolve, 10000));
+
+      if (hasTreatment) {
+        console.log(`File ${file.name} has treatment today.`);
+        filesWithTreatmentsToday.push(file.name, treatmentTimes);
+      }
+    }
+    return filesWithTreatmentsToday;
+  } catch (error) {
+    console.error('Error in getRecentlyEditedFilesInFolder:', error);
+    return [];
   }
 }

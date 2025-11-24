@@ -24,7 +24,6 @@ export async function GET(request) {
     if(caregiver ){
       console.log('Filtering animals for caregiver:', caregiver);
       const animals = await getAnimalsForCaregiverWithTreatementsToday(caregiver);
-      console.log('Animals fetched:', animals);
       return new Response(JSON.stringify(animals), { 
         status: 200, 
         headers: CORS_HEADERS 
