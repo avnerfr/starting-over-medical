@@ -17,7 +17,7 @@ export async function GET() {
       }
 
       console.log(`Fetching treatments for ${animalType} from folder ${ANIMAL_TREATMENT_SHEETS()[animalType].folderId}`);
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       try {
         const result = await getRecentlyEditedFilesInFolderWithTreatmentsToday(ANIMAL_TREATMENT_SHEETS()[animalType].folderId);
         console.log (`Received ${result.length} entries for ${animalType}`);

@@ -1159,7 +1159,7 @@ export async function getRecentlyEditedFilesInFolderWithTreatmentsToday(folderId
     });
     for (const file of tempResponse.data.files) {
       const { hasTreatment,treatmentTimes} = await hasTreatmentToday(file.id, todayStr);
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       if (hasTreatment) {
         console.log(`File ${file.name} has treatment today.`);
