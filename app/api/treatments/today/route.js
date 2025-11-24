@@ -23,10 +23,13 @@ export async function GET() {
       }
 
       console.log(`Fetching treatments for ${animalType} from folder ${ANIMAL_TREATMENT_SHEETS()[animalType].folderId}`);
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       try {
         const result = await getRecentlyEditedFilesInFolderWithTreatmentsToday(ANIMAL_TREATMENT_SHEETS()[animalType].folderId);
         console.log (`Received ${result.length} entries for ${animalType}`);
+        if(result.length > 0) {
+          //console.log('###### Entries:', result);
+        }
         // The function returns an array like [fileName1, treatmentTimes1, fileName2, treatmentTimes2, ...]
         // Let's process this data properly
         for (let i = 0; i < result.length; i += 2) {
