@@ -1,5 +1,11 @@
 import { time } from 'console';
 import { getRecentlyEditedFilesInFolderWithTreatmentsToday, ANIMAL_TREATMENT_SHEETS ,ensureConfigLoaded} from '../../../../src/lib/sheets.js';
+// app/api/treatments/today/route.ts
+export const dynamic = 'force-dynamic';      // don't pre-render at build
+export const fetchCache = 'force-no-store';  // don't cache in the static cache
+
+// optionally:
+export const revalidate = 0;                 // disable ISR if present
 
 export async function GET() {
   try {
